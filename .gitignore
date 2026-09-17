@@ -1,0 +1,8 @@
+node_modules
+bun.lockb
+bun.lock
+.dist
+build
+dist
+coverage
+.bun

@@ -1,0 +1,25 @@
+{
+  "name": "design-lint",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "design-lint": "./src/cli.ts"
+  },
+  "scripts": {
+    "start": "bun ./src/cli.ts",
+    "test": "bun test",
+    "check": "tsc --noEmit",
+    "build": "bun build ./src/cli.ts --outdir ./dist --target bun"
+  },
+  "dependencies": {
+    "@babel/parser": "^7.26.10",
+    "@babel/traverse": "^7.26.10",
+    "css-tree": "^3.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "bun-types": "latest",
+    "typescript": "^5.8.3"
+  }
+}
