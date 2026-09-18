@@ -4,7 +4,7 @@ type ButtonProps = {
 
 export function Button({ label = "Primary action" }: ButtonProps) {
   const buttonStyles = {
-    backgroundColor: "#13544A",
+    backgroundColor: "#FB640F",
     color: "#F8FAFC",
     padding: "12px",
     borderRadius: "6px",
