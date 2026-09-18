@@ -1,12 +1,12 @@
 import { basename, relative } from "node:path";
-import type { ReportSummary, ValidationResult } from "./types";
+import type { ReportSummary, ValidationResult } from "./types.js";
 
 export interface FormattedReport {
   text: string;
   summary: ReportSummary;
 }
 
-export function formatReport(results: ValidationResult[], basePath: string): FormattedReport {
+export function formatReport(results: ValidationResult[], basePath: string, failOnWarnings = false): FormattedReport {
   const summary = summarizeResults(results);
   const lines: string[] = [];
   const resultsByFile = groupResultsByFile(results);
@@ -40,7 +40,7 @@ export function formatReport(results: ValidationResult[], basePath: string): For
 
   lines.push("");
   lines.push(`Summary: ${summary.error} error${summary.error === 1 ? "" : "s"}, ${summary.warning} warning${summary.warning === 1 ? "" : "s"}, ${summary.valid} valid`);
-  lines.push(summary.error > 0 ? "Result: failed" : "Result: passed");
+  lines.push(summary.error > 0 || (failOnWarnings && summary.warning > 0) ? "Result: failed" : "Result: passed");
 
   return {
     text: lines.join("\n"),

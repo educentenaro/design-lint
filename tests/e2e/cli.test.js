@@ -1,9 +1,12 @@
-import { expect, test } from "bun:test";
+import { test } from "node:test";
+import assert from "node:assert/strict";
 import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
+import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
 
-async function createFixture(hardcoded: boolean): Promise<{ root: string; tokensDir: string; srcDir: string }> {
+async function createFixture(hardcoded) {
   const root = await mkdtemp(join(tmpdir(), "design-lint-e2e-"));
   const tokensDir = join(root, "tokens");
   const srcDir = join(root, "src");
@@ -57,20 +60,17 @@ async function createFixture(hardcoded: boolean): Promise<{ root: string; tokens
 test("CLI reports violations and exits with a failure code", async () => {
   const fixture = await createFixture(true);
   try {
-    const cliPath = resolve("c:\\tcc", "src", "cli.ts");
-    const result = Bun.spawnSync(["bun", cliPath, "--figma", fixture.tokensDir, "--src", fixture.srcDir], {
-      stdout: "pipe",
-      stderr: "pipe",
-    });
+    const cliPath = fileURLToPath(new URL("../../dist/cli.js", import.meta.url));
+    const result = spawnSync(process.execPath, [cliPath, "--figma", fixture.tokensDir, "--src", fixture.srcDir], { encoding: "utf8" });
 
-    const stdout = new TextDecoder().decode(result.stdout);
-    const stderr = new TextDecoder().decode(result.stderr);
+    const stdout = result.stdout;
+    const stderr = result.stderr;
 
-    expect(result.exitCode).toBe(1);
-    expect(stdout).toContain('Hardcoded color "#13544A"');
-    expect(stdout).toContain('Hardcoded spacing "12px"');
-    expect(stdout).toContain("Result: failed");
-    expect(stderr).toBe("");
+    assert.equal(result.status, 1);
+    assert.ok((stdout).includes('Hardcoded color "#13544A"'));
+    assert.ok((stdout).includes('Hardcoded spacing "12px"'));
+    assert.ok((stdout).includes("Result: failed"));
+    assert.equal(stderr, "");
   } finally {
     await rm(fixture.root, { recursive: true, force: true });
   }
@@ -79,17 +79,14 @@ test("CLI reports violations and exits with a failure code", async () => {
 test("CLI passes when code uses only token references", async () => {
   const fixture = await createFixture(false);
   try {
-    const cliPath = resolve("c:\\tcc", "src", "cli.ts");
-    const result = Bun.spawnSync(["bun", cliPath, "--figma", fixture.tokensDir, "--src", fixture.srcDir], {
-      stdout: "pipe",
-      stderr: "pipe",
-    });
+    const cliPath = fileURLToPath(new URL("../../dist/cli.js", import.meta.url));
+    const result = spawnSync(process.execPath, [cliPath, "--figma", fixture.tokensDir, "--src", fixture.srcDir], { encoding: "utf8" });
 
-    const stdout = new TextDecoder().decode(result.stdout);
+    const stdout = result.stdout;
 
-    expect(result.exitCode).toBe(0);
-    expect(stdout).toContain("All tokens correctly used");
-    expect(stdout).toContain("Result: passed");
+    assert.equal(result.status, 0);
+    assert.ok((stdout).includes("All tokens correctly used"));
+    assert.ok((stdout).includes("Result: passed"));
   } finally {
     await rm(fixture.root, { recursive: true, force: true });
   }

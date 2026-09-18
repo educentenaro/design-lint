@@ -1,123 +1,73 @@
-#!/usr/bin/env bun
-import { dirname, resolve } from "node:path";
-import { loadRawTokens } from "./figma-parser";
-import { collectSourceFiles } from "./file-scanner";
-import { analyzeSourceFile } from "./ast-analyzer";
-import { normalizeTokens } from "./token-normalizer";
-import { formatReport } from "./reporter";
-import { validateFindings } from "./validator";
-import type { CliConfig } from "./types";
+#!/usr/bin/env node
+import { readFile } from "node:fs/promises";
+import { parseArgs } from "node:util";
+import { loadConfig, type ProjectConfig } from "./config.js";
+import { scan } from "./scan.js";
+import { formatReport } from "./reporter.js";
 
-async function main(): Promise<void> {
-  const argv = Bun.argv.slice(2);
+const usage = `design-lint — React design token linting
 
-  if (argv.includes("--help") || argv.includes("-h")) {
-    printUsage();
-    process.exit(0);
-    return;
-  }
+Usage: design-lint scan [options]
 
-  const config = parseArguments(argv);
+Options:
+  --figma, -f <path>       Tokens JSON file or directory (default: tokens.json)
+  --src, -s <path>         Source directory or file (default: src)
+  --config, -c <path>      JSON config (default: ./design-lint.config.json)
+  --format <text|json>    Report format
+  --fail-on-warnings     Fail on warnings as well as errors
+  --help, -h             Show help
+  --version, -v          Show version
 
-  if (!config) {
-    printUsage();
-    process.exit(1);
-    return;
-  }
+Config supports figma, src, exclude (paths), format and failOnWarnings.
+Config paths are relative to its directory; CLI paths to the working directory.
+Exit codes: 0 passed; 1 lint violations; 2 configuration, I/O or parse failure.
+Legacy invocation without "scan" remains supported.`;
 
+async function main() {
   try {
-    const resolvedFigmaPath = resolve(config.figmaPath);
-    const resolvedSrcPath = resolve(config.srcPath);
-
-    const rawTokens = await loadRawTokens(resolvedFigmaPath);
-    if (rawTokens.length === 0) {
-      throw new Error(`No tokens were found in ${resolvedFigmaPath}`);
+    const { values, positionals } = parseArgs({
+      options: {
+        figma: { type: "string", short: "f" },
+        src: { type: "string", short: "s" },
+        config: { type: "string", short: "c" },
+        format: { type: "string" },
+        "fail-on-warnings": { type: "boolean" },
+        help: { type: "boolean", short: "h" },
+        version: { type: "boolean", short: "v" },
+      },
+      allowPositionals: true,
+      strict: true,
+    });
+    if (positionals.length > 1 || (positionals.length === 1 && positionals[0] !== "scan")) {
+      throw new Error(`Unknown command: ${positionals.join(" ")}. Use "design-lint scan".`);
     }
-
-    const tokenIndex = normalizeTokens(rawTokens);
-    if (tokenIndex.tokens.length === 0) {
-      throw new Error(`No supported tokens could be normalized from ${resolvedFigmaPath}`);
+    if (values.help || process.argv.length === 2) { console.log(usage); return; }
+    if (values.version) {
+      const pkg = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
+      console.log(pkg.version);
+      return;
     }
-
-    const sourceFiles = await collectSourceFiles(resolvedSrcPath);
-    if (sourceFiles.length === 0) {
-      throw new Error(`No supported source files were found in ${resolvedSrcPath}`);
+    if (values.format !== undefined && values.format !== "text" && values.format !== "json") throw new Error("--format must be text or json");
+    for (const key of ["figma", "src", "config"] as const) {
+      if (values[key] !== undefined && !values[key]!.trim()) throw new Error(`--${key} requires a non-empty path`);
     }
-
-    const findings = (await Promise.all(
-      sourceFiles.map(async (filePath) => {
-        const sourceText = await Bun.file(filePath).text();
-        return analyzeSourceFile(filePath, sourceText);
-      }),
-    )).flat();
-
-    const validationResults = validateFindings(findings, tokenIndex);
-    const report = formatReport(validationResults, dirname(resolvedSrcPath));
-    console.log(report.text);
-
-    process.exit(report.summary.error > 0 ? 1 : 0);
+    const overrides: ProjectConfig = {};
+    if (values.figma !== undefined) overrides.figma = values.figma;
+    if (values.src !== undefined) overrides.src = values.src;
+    if (values.format !== undefined) overrides.format = values.format;
+    if (values["fail-on-warnings"] !== undefined) overrides.failOnWarnings = values["fail-on-warnings"];
+    const config = await loadConfig(overrides, values.config);
+    const { files, results } = await scan(config);
+    const report = formatReport(results, config.basePath, config.failOnWarnings);
+    const failed = report.summary.error > 0 || (config.failOnWarnings && report.summary.warning > 0);
+    console.log(config.format === "json"
+      ? JSON.stringify({ files, results, summary: report.summary, passed: !failed }, null, 2)
+      : `Scanned ${files.length} file${files.length === 1 ? "" : "s"}\n\n${report.text}`);
+    process.exitCode = failed ? 1 : 0;
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    console.error(`design-lint: ${message}`);
-    process.exit(1);
+    console.error(`design-lint: ${error instanceof Error ? error.message : String(error)}`);
+    process.exitCode = 2;
   }
-}
-
-function parseArguments(argv: string[]): CliConfig | null {
-  const values = new Map<string, string>();
-
-  for (let index = 0; index < argv.length; index += 1) {
-    const entry = argv[index];
-
-    if (entry.startsWith("--figma=")) {
-      values.set("figma", entry.slice("--figma=".length));
-      continue;
-    }
-
-    if (entry.startsWith("--src=")) {
-      values.set("src", entry.slice("--src=".length));
-      continue;
-    }
-
-    if (entry === "--figma" || entry === "-f") {
-      const nextValue = argv[++index];
-      if (nextValue) {
-        values.set("figma", nextValue);
-      }
-      continue;
-    }
-
-    if (entry === "--src" || entry === "-s") {
-      const nextValue = argv[++index];
-      if (nextValue) {
-        values.set("src", nextValue);
-      }
-      continue;
-    }
-  }
-
-  const figmaPath = values.get("figma");
-  const srcPath = values.get("src");
-
-  if (!figmaPath || !srcPath) {
-    return null;
-  }
-
-  return { figmaPath, srcPath };
-}
-
-function printUsage(): void {
-  console.log([
-    "design-lint",
-    "",
-    "Usage:",
-    "  design-lint --figma <tokens.json|tokens-dir> --src <project-src>",
-    "",
-    "Options:",
-    "  --figma, -f   Path to a Figma tokens JSON file or directory",
-    "  --src, -s     Path to a React source folder or a single source file",
-    "  --help, -h    Show this message",
-  ].join("\n"));
 }
 
 await main();

@@ -1,6 +1,6 @@
 import { extname, join, resolve } from "node:path";
-import { readdir, stat } from "node:fs/promises";
-import type { RawToken } from "./types";
+import { readFile, readdir, stat } from "node:fs/promises";
+import type { RawToken } from "./types.js";
 
 export async function loadRawTokens(inputPath: string): Promise<RawToken[]> {
   const resolvedPath = resolve(inputPath);
@@ -12,8 +12,15 @@ export async function loadRawTokens(inputPath: string): Promise<RawToken[]> {
   const rawTokens: RawToken[] = [];
 
   for (const filePath of inputFiles) {
-    const fileText = await Bun.file(filePath).text();
-    const parsed = JSON.parse(fileText) as Record<string, unknown>;
+    const fileText = await readFile(filePath, "utf8");
+    let parsed: Record<string, unknown>;
+    try {
+      const value: unknown = JSON.parse(fileText.replace(/^\uFEFF/, ""));
+      if (!isRecord(value)) throw new Error("Expected a JSON object");
+      parsed = value;
+    } catch (error) {
+      throw new Error(`Invalid token file ${filePath}: ${error instanceof Error ? error.message : String(error)}`);
+    }
     const modeName = extractModeName(parsed);
     collectTokensFromTree(parsed, [], filePath, modeName, rawTokens);
   }

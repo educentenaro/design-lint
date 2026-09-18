@@ -3,7 +3,7 @@ import type {
   NormalizedTokenIndex,
   RawToken,
   TokenCategory,
-} from "./types";
+} from "./types.js";
 
 const COLOR_SEGMENT_HINTS = new Set([
   "color",

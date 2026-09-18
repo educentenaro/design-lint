@@ -1,15 +1,16 @@
-import { afterEach, expect, test } from "bun:test";
-import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import { afterEach, test } from "node:test";
+import assert from "node:assert/strict";
+import { mkdtemp, mkdir, rm, writeFile, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { loadRawTokens } from "../../src/figma-parser";
-import { collectSourceFiles } from "../../src/file-scanner";
-import { analyzeSourceFile } from "../../src/ast-analyzer";
-import { normalizeTokens } from "../../src/token-normalizer";
-import { formatReport } from "../../src/reporter";
-import { validateFindings } from "../../src/validator";
+import { loadRawTokens } from "../../dist/figma-parser.js";
+import { collectSourceFiles } from "../../dist/file-scanner.js";
+import { analyzeSourceFile } from "../../dist/ast-analyzer.js";
+import { normalizeTokens } from "../../dist/token-normalizer.js";
+import { formatReport } from "../../dist/reporter.js";
+import { validateFindings } from "../../dist/validator.js";
 
-let tempDirs: string[] = [];
+let tempDirs = [];
 
 afterEach(async () => {
   await Promise.all(tempDirs.map((directory) => rm(directory, { recursive: true, force: true })));
@@ -88,17 +89,17 @@ test("loads tokens, scans sources, and produces a mixed report", async () => {
   const rawTokens = await loadRawTokens(tokensDir);
   const tokenIndex = normalizeTokens(rawTokens);
   const sourceFiles = await collectSourceFiles(srcDir);
-  const findings = (await Promise.all(sourceFiles.map(async (filePath) => analyzeSourceFile(filePath, await Bun.file(filePath).text())))).flat();
+  const findings = (await Promise.all(sourceFiles.map(async (filePath) => analyzeSourceFile(filePath, await readFile(filePath, "utf8"))))).flat();
   const validationResults = validateFindings(findings, tokenIndex);
   const report = formatReport(validationResults, srcDir);
 
-  expect(rawTokens).toHaveLength(3);
-  expect(sourceFiles).toHaveLength(1);
-  expect(report.summary.error).toBe(2);
-  expect(report.summary.warning).toBe(0);
-  expect(report.summary.valid).toBe(1);
-  expect(report.text).toContain('Hardcoded color "#111111"');
-  expect(report.text).toContain('Hardcoded spacing "12px"');
-  expect(report.text).toContain('1 token-backed usages accepted');
-  expect(validationResults.some((result) => result.severity === "valid" && result.message === "Uses token reference theme.colors.background.100")).toBe(true);
+  assert.equal((rawTokens).length, 3);
+  assert.equal((sourceFiles).length, 1);
+  assert.equal(report.summary.error, 2);
+  assert.equal(report.summary.warning, 0);
+  assert.equal(report.summary.valid, 1);
+  assert.ok((report.text).includes('Hardcoded color "#111111"'));
+  assert.ok((report.text).includes('Hardcoded spacing "12px"'));
+  assert.ok((report.text).includes('1 token-backed usages accepted'));
+  assert.equal(validationResults.some((result) => result.severity === "valid" && result.message === "Uses token reference theme.colors.background.100"), true);
 });

@@ -1,9 +1,9 @@
-import { expect, test } from "bun:test";
-import { normalizeTokens, findTokenByPath, findTokensByValue } from "../../src/token-normalizer";
-import type { RawToken } from "../../src/types";
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { normalizeTokens, findTokenByPath, findTokensByValue } from "../../dist/token-normalizer.js";
 
 test("normalizes aliased tokens and builds stable lookups", () => {
-  const rawTokens: RawToken[] = [
+  const rawTokens = [
     {
       sourceFile: "Default.tokens.json",
       pathSegments: ["spacing", "base"],
@@ -29,9 +29,9 @@ test("normalizes aliased tokens and builds stable lookups", () => {
 
   const index = normalizeTokens(rawTokens);
 
-  expect(index.tokens).toHaveLength(3);
-  expect(findTokenByPath(index, ["spacing", "md"])?.normalizedValue).toBe("8");
-  expect(findTokensByValue(index, "spacing", "8")).toHaveLength(2);
-  expect(findTokenByPath(index, ["color", "brand", "500"])?.cssVariableName).toBe("color-brand-500");
-  expect(findTokenByPath(index, ["color", "brand", "500"])?.jsReference).toBe('tokens.color.brand["500"]');
+  assert.equal((index.tokens).length, 3);
+  assert.equal(findTokenByPath(index, ["spacing", "md"])?.normalizedValue, "8");
+  assert.equal((findTokensByValue(index, "spacing", "8")).length, 2);
+  assert.equal(findTokenByPath(index, ["color", "brand", "500"])?.cssVariableName, "color-brand-500");
+  assert.equal(findTokenByPath(index, ["color", "brand", "500"])?.jsReference, 'tokens.color.brand["500"]');
 });

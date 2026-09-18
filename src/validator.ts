@@ -1,15 +1,15 @@
-import type { NormalizedToken, NormalizedTokenIndex, ValidationResult } from "./types";
+import type { NormalizedToken, NormalizedTokenIndex, ValidationResult } from "./types.js";
 import {
   buildCssVariableName,
   buildJsReference,
   findTokensByValue,
   findTokenByPath,
   normalizeValueForCategory,
-} from "./token-normalizer";
-import type { TokenCategory } from "./types";
+} from "./token-normalizer.js";
+import type { TokenCategory } from "./types.js";
 
 export function validateFindings(
-  findings: import("./types").AnalysisFinding[],
+  findings: import("./types.js").AnalysisFinding[],
   tokenIndex: NormalizedTokenIndex,
 ): ValidationResult[] {
   const results: ValidationResult[] = [];
@@ -38,7 +38,7 @@ export function validateFindings(
 }
 
 function validateReferenceFinding(
-  finding: import("./types").AnalysisFinding,
+  finding: import("./types.js").AnalysisFinding,
   tokenIndex: NormalizedTokenIndex,
 ): ValidationResult {
   const referencePath = finding.referencePath ?? [];
@@ -72,7 +72,7 @@ function validateReferenceFinding(
 }
 
 function validateLiteralFinding(
-  finding: import("./types").AnalysisFinding,
+  finding: import("./types.js").AnalysisFinding,
   tokenIndex: NormalizedTokenIndex,
 ): ValidationResult {
   const category = finding.category;

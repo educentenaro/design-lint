@@ -10,6 +10,7 @@ export type ConfidenceLevel = "high" | "medium" | "low";
 export interface CliConfig {
   figmaPath: string;
   srcPath: string;
+  exclude?: string[];
 }
 
 export interface TokenDocument {

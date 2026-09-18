@@ -1,16 +1,20 @@
 {
   "name": "design-lint",
   "version": "0.1.0",
-  "private": true,
+  "description": "AST-based React design token linting for JavaScript, TypeScript and CSS",
+  "engines": { "node": ">=22" },
+  "files": ["dist"],
   "type": "module",
   "bin": {
-    "design-lint": "./src/cli.ts"
+    "design-lint": "./dist/cli.js"
   },
   "scripts": {
-    "start": "bun ./src/cli.ts",
-    "test": "bun test",
+    "start": "node ./dist/cli.js",
+    "test": "npm run build && node --test tests/unit/*.test.js tests/integration/*.test.js tests/e2e/*.test.js",
+    "test:package": "node scripts/test-package.mjs",
     "check": "tsc --noEmit",
-    "build": "bun build ./src/cli.ts --outdir ./dist --target bun"
+    "build": "tsc",
+    "prepack": "npm run check && npm run build"
   },
   "dependencies": {
     "@babel/parser": "^7.26.10",
@@ -19,7 +23,6 @@
   },
   "devDependencies": {
     "@types/node": "^22.15.0",
-    "bun-types": "latest",
     "typescript": "^5.8.3"
   }
 }

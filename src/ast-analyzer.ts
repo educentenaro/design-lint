@@ -1,14 +1,16 @@
 import { extname } from "node:path";
 import { parse } from "@babel/parser";
-import traverse from "@babel/traverse";
+import traverseModule from "@babel/traverse";
 import * as csstree from "css-tree";
-import type { AnalysisFinding, ConfidenceLevel, SourceFileKind, TokenCategory } from "./types";
+import type { AnalysisFinding, ConfidenceLevel, SourceFileKind, TokenCategory } from "./types.js";
 import {
   buildJsReference,
   normalizeValueForCategory,
-} from "./token-normalizer";
+} from "./token-normalizer.js";
 
 const STYLE_ATTRIBUTE_NAMES = new Set(["style", "sx", "css"]);
+// Babel traverse is CommonJS; native Node ESM exposes its exports object.
+const traverse = typeof traverseModule === "function" ? traverseModule : traverseModule.default;
 const STYLE_IDENTIFIER_NAMES = /(style|styles|sx|css|theme|tokens)/i;
 const STYLE_FACTORY_CALLS = new Set(["css", "createStyles", "makeStyles", "styled"]);
 const SAFE_LITERAL_VALUES = new Set([
@@ -45,7 +47,7 @@ function analyzeScriptSource(filePath: string, sourceText: string): AnalysisFind
   const visitedObjectExpressions = new Set<string>();
   const ast = parse(sourceText, {
     sourceType: "unambiguous",
-    errorRecovery: true,
+    errorRecovery: false,
     plugins: ["jsx", "typescript", "classProperties", "classPrivateProperties", "classPrivateMethods", "decorators-legacy", "objectRestSpread", "optionalChaining", "nullishCoalescingOperator"],
   });
 
@@ -95,7 +97,10 @@ function analyzeScriptSource(filePath: string, sourceText: string): AnalysisFind
 function analyzeCssSource(filePath: string, sourceText: string): AnalysisFinding[] {
   const sourceKind: SourceFileKind = "css";
   const findings: AnalysisFinding[] = [];
-  const ast = csstree.parse(sourceText, { positions: true });
+  const ast = csstree.parse(sourceText, {
+    positions: true,
+    onParseError(error: Error) { throw error; },
+  });
 
   csstree.walk(ast, (node: any) => {
     if (node.type !== "Declaration") {
